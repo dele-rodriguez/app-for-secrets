@@ -6,6 +6,7 @@ const _ = require('lodash');
 const ejs = require('ejs');
 const encrypt = require('mongoose-encryption');
 const app = express();
+const md5 = require('md5');
 
 
 app.set('view engine', 'ejs');
@@ -28,7 +29,7 @@ const userSchema = new mongoose.Schema({
 });
 
 
-userSchema.plugin(encrypt, { secret: process.env.SECRET , encryptedFields: ["password"] });
+// userSchema.plugin(encrypt, { secret: process.env.SECRET , encryptedFields: ["password"] });
 
 // collection creation 
 const User = mongoose.model('User' , userSchema);
@@ -44,7 +45,7 @@ app.route('/login')
 })
 .post((req , res) => {
     const username = req.body.username;
-    const password = req.body.password;
+    const password = md5(req.body.password);
 
     User.findOne({email: username})
         .then((foundUser) => {
@@ -66,7 +67,7 @@ app.route('/register')
 .post((req , res) => {
     const newUser = new User({
         email: req.body.username,
-        password: req.body.password
+        password: md5(req.body.password)
     });
     newUser.save()
         .then(() => {
