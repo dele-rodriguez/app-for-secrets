@@ -7,6 +7,8 @@ const ejs = require('ejs');
 const session = require('express-session');
 const passport = require('passport');
 const passportLocalMongoose = require('passport-local-mongoose');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const findOrCreate = require('mongoose-findorcreate');
 
 const app = express();
 
@@ -36,10 +38,12 @@ mongoose.connect('mongodb://127.0.0.1:27017/userDB')
 // Schema creation 
 const userSchema = new mongoose.Schema({
     email: String,
-    password: String
+    password: String,
+    googleId: String
 });
 
 userSchema.plugin(passportLocalMongoose);
+userSchema.plugin(findOrCreate);
 
 // userSchema.plugin(encrypt, { secret: process.env.SECRET , encryptedFields: ["password"] });
 
@@ -48,12 +52,46 @@ const User = mongoose.model('User' , userSchema);
 
 passport.use(User.createStrategy());
 
-passport.serializeUser(User.serializeUser());
-passport.deserializeUser(User.deserializeUser());
+// passport general quthentication method 
+passport.serializeUser((user , done) => {
+    done(null , user.id);
+});
+passport.deserializeUser((id, done) => {
+    User.findById(id)
+        .then((user) => {
+            done(null, user);
+        })
+        .catch ((err) => {
+            done(err, null);
+            console.log(err);
+    });
+});
+
+passport.use(new GoogleStrategy({
+    clientID: process.env.CLIENT_ID,
+    clientSecret: process.env.CLIENT_SECRET,
+    callbackURL: "http://localhost:3000/auth/google/secrets",
+    userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    // console.log(profile);
+    User.findOrCreate({ googleId: profile.id }, function (err, user) {
+      return cb(err, user);
+    });
+  }
+));
 
 app.route('/')
 .get((req , res) => {
     res.render('home');
+});
+
+app.route('/auth/google')
+.get(passport.authenticate('google' , { scope: ['profile'] }));
+
+app.route('/auth/google/secrets')
+.get(passport.authenticate('google', { failureRedirect: '/login' }) , (req , res) => {
+    res.redirect('/secrets');
 });
 
 app.route('/login')
@@ -120,66 +158,3 @@ app.route('/logout')
 app.listen(3000 , () => {
     console.log("Server is up and running!");
 });
-
-
-
-// const md5 = require('md5');
-    // // const bcrypt = require('bcrypt');
-    // const encrypt = require('mongoose-encryption');
-// // const saltRounds = 11;
-
-
-// const username = req.body.username;
-    // const password = req.body.password;
-    // // const hashpassword = md5(req.body.password);
-
-    // User.findOne({email: username})
-    //     .then((foundUser) => {
-    //         if (foundUser) {
-    //             bcrypt.compare(password, foundUser.password)
-    //                 .then( (result) => {
-    //                     if (result === true) {
-    //                         res.render('secrets');
-    //                     } else {
-    //                         res.send("Wrong Password!");
-    //                    }
-    //                 })
-    //                 .catch((error) => {
-    //                     console.log(error);
-    //             })
-    //         } else {
-    //             res.send("you are not registered");
-    //         }
-    //     })
-    //     .catch((err) => {
-    //         console.log(err);
-// });
-
-
-// bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
-    //     const newUser = new User({
-    //         email: req.body.username,
-    //         password: hash
-    //     });
-    //     newUser.save()
-    //         .then(() => {
-    //             res.render('secrets');
-    //         })
-    //         .catch((err) => {
-    //             console.log(err);
-    //     });
-// });
-
-
-
-
-// const authenticate = User.authenticate();
-            // authenticate(req.body.username, req.body.password, (err, result) => {
-            //     if (err) {
-            //         res.redirect('/register');
-            //         console.log("Authentication err!");
-            //     }   else {
-            //         res.redirect('/secrets');
-            //         console.log("authentication successful!")
-            //     }
-// });
