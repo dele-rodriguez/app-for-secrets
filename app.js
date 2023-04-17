@@ -26,8 +26,15 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+const clusterUsername = process.env.CLUSTER_USERNAME;
+const clusterPassword = process.env.CLUSTER_PASSWORD;
+
+const atlasUrl = "mongodb+srv://" + clusterUsername + ":" + clusterPassword + "@cluster0.p0vhcs6.mongodb.net/userDB";
+
+const localUrl = "mongodb://127.0.0.1:27017/userDB"
+
 // connection to mongodb database 
-mongoose.connect('mongodb://127.0.0.1:27017/userDB')
+mongoose.connect(atlasUrl)
 .then (() => {
     console.log("connected");
 })
